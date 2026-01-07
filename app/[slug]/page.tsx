@@ -31,7 +31,7 @@ export default async function BookingPage({ params }: PageProps) {
     notFound();
   }
 
-  const availableSlots = session.slots.filter((s) => !s.isBooked).length;
+  const availableSlots = session.slots.filter((s: { isBooked: boolean }) => !s.isBooked).length;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
