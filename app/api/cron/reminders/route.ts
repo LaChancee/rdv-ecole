@@ -99,8 +99,8 @@ export async function GET(request: NextRequest) {
     // Send daily summary to each teacher
     for (const session of sessionsWithAppointments) {
       const appointments = session.slots
-        .filter((slot) => slot.booking)
-        .map((slot) => ({
+        .filter((slot: { booking: unknown }) => slot.booking)
+        .map((slot: { booking: { parentName: string; childFirstname: string } | null; startTime: string; endTime: string }) => ({
           parentName: slot.booking!.parentName,
           childFirstname: slot.booking!.childFirstname,
           startTime: slot.startTime,
