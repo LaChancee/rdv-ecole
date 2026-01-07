@@ -69,7 +69,7 @@ export function SessionList({ sessions }: SessionListProps) {
                       Page parent
                     </Link>
                   </Button>
-                  <DeleteSessionButton sessionId={session.id} />
+                  <DeleteSessionButton sessionId={session.id} sessionName={session.name} />
                 </div>
               </div>
             </CardContent>
