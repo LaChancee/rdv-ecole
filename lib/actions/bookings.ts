@@ -1,10 +1,13 @@
 "use server";
 
 import { prisma } from "@/lib/db";
-import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { createBookingSchema } from "@/lib/validations/booking";
 import { sendConfirmationEmails } from "./emails";
+
+type TransactionClient = Parameters<
+  Parameters<typeof prisma.$transaction>[0]
+>[0];
 
 export type ActionResult<T> =
   | { success: true; data: T }
@@ -30,7 +33,7 @@ export async function createBooking(
   const { slotId, parentName, childFirstname, email, comment } = validated.data;
 
   try {
-    const booking = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const booking = await prisma.$transaction(async (tx: TransactionClient) => {
       // Check slot availability
       const slot = await tx.slot.findUnique({
         where: { id: slotId },
