@@ -3,6 +3,8 @@ import { getAllSessions } from "@/lib/actions/sessions";
 import { SessionList } from "@/components/session-list";
 import { Button } from "@/components/ui/button";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Dashboard - RDV-École",
   description: "Gérez vos sessions de rendez-vous",

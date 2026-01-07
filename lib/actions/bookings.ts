@@ -23,7 +23,7 @@ export async function createBooking(
 
   const validated = createBookingSchema.safeParse(rawData);
   if (!validated.success) {
-    return { success: false, error: validated.error.errors[0].message };
+    return { success: false, error: validated.error.issues[0].message };
   }
 
   const { slotId, parentName, childFirstname, email, comment } = validated.data;

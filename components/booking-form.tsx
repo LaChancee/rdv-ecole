@@ -83,7 +83,7 @@ export function BookingForm({ selectedSlot, teacherName }: BookingFormProps) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="childFirstname">Prénom de l'enfant *</Label>
+            <Label htmlFor="childFirstname">Prénom de l&apos;enfant *</Label>
             <Input
               id="childFirstname"
               name="childFirstname"

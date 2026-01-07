@@ -3,7 +3,10 @@
     "allow": [
       "Bash(pnpm add:*)",
       "Bash(cat:*)",
-      "Bash(npx prisma generate)"
+      "Bash(npx prisma generate)",
+      "Bash(npx tsc:*)",
+      "Bash(pnpm run build:*)",
+      "Bash(pnpm run lint)"
     ]
   }
 }

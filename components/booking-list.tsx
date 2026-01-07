@@ -71,7 +71,7 @@ export function BookingList({ bookings, sessionName }: BookingListProps) {
                       {booking.email && ` (${booking.email})`}
                     </p>
                     {booking.comment && (
-                      <p className="text-sm mt-1 italic">"{booking.comment}"</p>
+                      <p className="text-sm mt-1 italic">&quot;{booking.comment}&quot;</p>
                     )}
                   </CardContent>
                 </Card>

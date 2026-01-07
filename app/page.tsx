@@ -17,7 +17,7 @@ export default function Home() {
         <CardContent className="space-y-6">
           <div className="space-y-2 text-center text-sm text-muted-foreground">
             <p>Premier arrivé, premier servi.</p>
-            <p>Plus d'arbitrage, plus de confusion.</p>
+            <p>Plus d&apos;arbitrage, plus de confusion.</p>
           </div>
 
           <div className="space-y-3">

@@ -17,7 +17,7 @@ export async function createSession(
 ): Promise<ActionResult<{ id: string; slug: string }>> {
   const validated = createSessionSchema.safeParse(input);
   if (!validated.success) {
-    return { success: false, error: validated.error.errors[0].message };
+    return { success: false, error: validated.error.issues[0].message };
   }
 
   const { name, teacherName, teacherEmail, teacherClass, slotConfig } =

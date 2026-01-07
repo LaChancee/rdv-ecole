@@ -3,6 +3,8 @@ import { getSessionBySlug } from "@/lib/actions/sessions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BookingPageClient } from "./booking-page-client";
 
+export const dynamic = "force-dynamic";
+
 interface PageProps {
   params: Promise<{ slug: string }>;
 }
