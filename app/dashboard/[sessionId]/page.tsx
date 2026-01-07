@@ -32,9 +32,22 @@ export default async function SessionDetailPage({ params }: PageProps) {
     notFound();
   }
 
+  type SlotWithBooking = {
+    booking: {
+      id: string;
+      parentName: string;
+      childFirstname: string;
+      email: string | null;
+      comment: string | null;
+    } | null;
+    date: Date;
+    startTime: string;
+    endTime: string;
+  };
+
   const bookings = session.slots
-    .filter((slot) => slot.booking)
-    .map((slot) => ({
+    .filter((slot: SlotWithBooking) => slot.booking)
+    .map((slot: SlotWithBooking) => ({
       id: slot.booking!.id,
       parentName: slot.booking!.parentName,
       childFirstname: slot.booking!.childFirstname,
