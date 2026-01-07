@@ -20,7 +20,7 @@ export async function createSession(
     return { success: false, error: validated.error.issues[0].message };
   }
 
-  const { name, teacherName, teacherEmail, teacherClass, slotConfig } =
+  const { name, teacherName, teacherEmail, teacherClass, slotGroups } =
     validated.data;
   const slug = generateSlug(teacherName, name);
 
@@ -30,7 +30,12 @@ export async function createSession(
     return { success: false, error: "Une session avec ce nom existe déjà" };
   }
 
-  const generatedSlots = generateTimeSlots(slotConfig);
+  // Generate slots from all groups
+  const allSlots: { date: Date; startTime: string; endTime: string }[] = [];
+  for (const group of slotGroups) {
+    const groupSlots = generateTimeSlots(group);
+    allSlots.push(...groupSlots);
+  }
 
   try {
     const session = await prisma.$transaction(async (tx) => {
@@ -45,7 +50,7 @@ export async function createSession(
       });
 
       await tx.slot.createMany({
-        data: generatedSlots.map((slot) => ({
+        data: allSlots.map((slot) => ({
           sessionId: newSession.id,
           date: slot.date,
           startTime: slot.startTime,

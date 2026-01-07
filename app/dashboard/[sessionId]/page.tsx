@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getSessionWithBookings } from "@/lib/actions/sessions";
 import { BookingList } from "@/components/booking-list";
+import { LinkDisplay } from "@/components/link-display";
 import { Button } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
@@ -55,14 +56,8 @@ export default async function SessionDetailPage({ params }: PageProps) {
           </Button>
         </div>
 
-        <div className="mb-4 p-4 bg-white rounded-lg border">
-          <p className="text-sm text-muted-foreground">
-            Lien pour les parents :{" "}
-            <code className="bg-gray-100 px-2 py-1 rounded">
-              {process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/
-              {session.slug}
-            </code>
-          </p>
+        <div className="mb-4">
+          <LinkDisplay slug={session.slug} />
         </div>
 
         <BookingList bookings={bookings} sessionName={session.name} />

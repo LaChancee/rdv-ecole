@@ -1,10 +1,14 @@
 import nodemailer from "nodemailer";
 
+// Brevo (ex-Sendinblue) SMTP configuration
+// Free tier: 300 emails/day
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  host: "smtp-relay.brevo.com",
+  port: 587,
+  secure: false,
   auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_APP_PASSWORD,
+    user: process.env.BREVO_SMTP_USER,
+    pass: process.env.BREVO_SMTP_KEY,
   },
 });
 
@@ -17,13 +21,13 @@ export async function sendEmail({
   subject: string;
   html: string;
 }) {
-  if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+  if (!process.env.BREVO_SMTP_USER || !process.env.BREVO_SMTP_KEY) {
     console.warn("Email not configured, skipping send");
     return;
   }
 
   await transporter.sendMail({
-    from: `"RDV-École" <${process.env.GMAIL_USER}>`,
+    from: `"RDV-École" <${process.env.BREVO_SENDER_EMAIL || process.env.BREVO_SMTP_USER}>`,
     to,
     subject,
     html,
