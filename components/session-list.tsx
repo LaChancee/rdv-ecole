@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DeleteSessionButton } from "@/components/delete-session-button";
 
 interface Session {
   id: string;
@@ -54,12 +55,12 @@ export function SessionList({ sessions }: SessionListProps) {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-2">
                 <p className="text-sm">
                   <span className="font-medium">{bookedCount}</span> / {totalSlots}{" "}
                   créneaux réservés
                 </p>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <Button variant="outline" size="sm" asChild>
                     <Link href={`/dashboard/${session.id}`}>Voir les RDV</Link>
                   </Button>
@@ -68,6 +69,7 @@ export function SessionList({ sessions }: SessionListProps) {
                       Page parent
                     </Link>
                   </Button>
+                  <DeleteSessionButton sessionId={session.id} />
                 </div>
               </div>
             </CardContent>

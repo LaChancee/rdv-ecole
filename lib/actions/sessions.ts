@@ -125,3 +125,18 @@ export async function archiveSession(
     return { success: false, error: "Erreur lors de l'archivage" };
   }
 }
+
+export async function deleteSession(
+  sessionId: string
+): Promise<ActionResult<void>> {
+  try {
+    // Cascade delete will remove slots and bookings
+    await prisma.session.delete({
+      where: { id: sessionId },
+    });
+    revalidatePath("/dashboard");
+    return { success: true, data: undefined };
+  } catch {
+    return { success: false, error: "Erreur lors de la suppression" };
+  }
+}
