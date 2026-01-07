@@ -77,7 +77,7 @@ graph TB
 - **Jamstack Serverless :** Next.js App Router avec Server Components et Server Actions — _Rationale :_ Zero infrastructure à gérer, scaling automatique, performance optimale
 - **Server Components First :** Rendu côté serveur par défaut, Client Components uniquement pour l'interactivité — _Rationale :_ Moins de JavaScript client, meilleur SEO, données fraîches
 - **Server Actions for Mutations :** Pas d'API REST séparée, mutations via Server Actions — _Rationale :_ Simplicité maximale, type-safety de bout en bout
-- **Repository Pattern Light :** Couche d'accès données avec Drizzle ORM — _Rationale :_ Abstraction propre, facilite les tests et migrations futures
+- **Repository Pattern Light :** Couche d'accès données avec Prisma ORM — _Rationale :_ Abstraction propre, facilite les tests et migrations futures
 
 ---
 
@@ -96,7 +96,8 @@ graph TB
 | Backend Framework | Next.js Server Actions | 14.x | API mutations | Intégré, type-safe, simple |
 | API Style | Server Actions | N/A | RPC-style mutations | Pas besoin de REST pour ce projet |
 | Database | PostgreSQL | 16 | Données relationnelles | Via Neon, robuste et gratuit |
-| ORM | Drizzle | latest | Database access | Type-safe, léger, excellent avec Neon |
+| ORM | Prisma | 5.x | Database access | Type-safe, excellent DX, schema déclaratif |
+| Validation | Zod | 3.x | Input validation | Type-safe, intégration Server Actions |
 | Cache | None | N/A | Pas nécessaire | Volume trop faible |
 | File Storage | None | N/A | Pas de fichiers | Pas d'images/uploads |
 | Authentication | None (lien simple) | N/A | Accès parent | Contexte confiance école |
@@ -497,56 +498,74 @@ sequenceDiagram
 
 ## Database Schema
 
-```sql
--- Sessions de rendez-vous
-CREATE TABLE sessions (
-    id TEXT PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL,
-    slug TEXT NOT NULL UNIQUE,
-    teacher_name TEXT NOT NULL,
-    teacher_email TEXT NOT NULL,
-    teacher_class TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'archived')),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+```prisma
+// prisma/schema.prisma
 
--- Index pour recherche par slug
-CREATE INDEX idx_sessions_slug ON sessions(slug);
-CREATE INDEX idx_sessions_status ON sessions(status);
+generator client {
+  provider = "prisma-client-js"
+}
 
--- Créneaux horaires
-CREATE TABLE slots (
-    id TEXT PRIMARY KEY DEFAULT gen_random_uuid(),
-    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
-    date DATE NOT NULL,
-    start_time TIME NOT NULL,
-    end_time TIME NOT NULL,
-    is_booked BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
 
-    UNIQUE(session_id, date, start_time)
-);
+enum SessionStatus {
+  active
+  archived
+}
 
--- Index pour filtrage
-CREATE INDEX idx_slots_session ON slots(session_id);
-CREATE INDEX idx_slots_date ON slots(date);
-CREATE INDEX idx_slots_available ON slots(session_id, is_booked) WHERE is_booked = FALSE;
+model Session {
+  id           String        @id @default(cuid())
+  name         String
+  slug         String        @unique
+  teacherName  String        @map("teacher_name")
+  teacherEmail String        @map("teacher_email")
+  teacherClass String        @map("teacher_class")
+  status       SessionStatus @default(active)
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
 
--- Réservations
-CREATE TABLE bookings (
-    id TEXT PRIMARY KEY DEFAULT gen_random_uuid(),
-    slot_id TEXT NOT NULL UNIQUE REFERENCES slots(id) ON DELETE CASCADE,
-    parent_name TEXT NOT NULL,
-    child_firstname TEXT NOT NULL,
-    email TEXT,
-    comment TEXT,
-    reminder_sent BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+  slots Slot[]
 
--- Index pour rappels
-CREATE INDEX idx_bookings_reminder ON bookings(reminder_sent) WHERE reminder_sent = FALSE;
+  @@index([slug])
+  @@index([status])
+  @@map("sessions")
+}
+
+model Slot {
+  id        String   @id @default(cuid())
+  sessionId String   @map("session_id")
+  date      DateTime @db.Date
+  startTime String   @map("start_time") // "17:00"
+  endTime   String   @map("end_time")   // "17:15"
+  isBooked  Boolean  @default(false) @map("is_booked")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  session Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  booking Booking?
+
+  @@unique([sessionId, date, startTime])
+  @@index([sessionId])
+  @@index([date])
+  @@map("slots")
+}
+
+model Booking {
+  id             String   @id @default(cuid())
+  slotId         String   @unique @map("slot_id")
+  parentName     String   @map("parent_name")
+  childFirstname String   @map("child_firstname")
+  email          String?
+  comment        String?
+  reminderSent   Boolean  @default(false) @map("reminder_sent")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  slot Slot @relation(fields: [slotId], references: [id], onDelete: Cascade)
+
+  @@index([reminderSent])
+  @@map("bookings")
+}
 ```
 
 ---
@@ -579,9 +598,10 @@ src/
 │   ├── session-list.tsx
 │   └── booking-list.tsx
 ├── lib/
-│   ├── db/
-│   │   ├── index.ts              # Drizzle client
-│   │   └── schema.ts             # Drizzle schema
+│   ├── db.ts                     # Prisma client
+│   ├── validations/              # Zod schemas
+│   │   ├── booking.ts
+│   │   └── session.ts
 │   ├── actions/
 │   │   ├── sessions.ts
 │   │   ├── bookings.ts
@@ -676,54 +696,72 @@ export function middleware(request: NextRequest) {
 // lib/actions/bookings.ts
 'use server';
 
-import { db } from '@/lib/db';
-import { bookings, slots } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { prisma } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
+import { createBookingSchema } from '@/lib/validations/booking';
 import { sendConfirmationEmail } from './emails';
 
 export async function createBooking(formData: FormData) {
-  const slotId = formData.get('slotId') as string;
-  const parentName = formData.get('parentName') as string;
-  const childFirstname = formData.get('childFirstname') as string;
-  const email = formData.get('email') as string | null;
-  const comment = formData.get('comment') as string | null;
+  // Validation avec Zod
+  const rawData = {
+    slotId: formData.get('slotId'),
+    parentName: formData.get('parentName'),
+    childFirstname: formData.get('childFirstname'),
+    email: formData.get('email') || undefined,
+    comment: formData.get('comment') || undefined,
+  };
 
-  // Transaction pour éviter les race conditions
-  const result = await db.transaction(async (tx) => {
-    // Vérifier que le créneau est disponible
-    const slot = await tx.query.slots.findFirst({
-      where: eq(slots.id, slotId),
-    });
-
-    if (!slot || slot.isBooked) {
-      throw new Error('Ce créneau n\'est plus disponible');
-    }
-
-    // Créer la réservation
-    const [booking] = await tx.insert(bookings).values({
-      slotId,
-      parentName,
-      childFirstname,
-      email,
-      comment,
-    }).returning();
-
-    // Marquer le créneau comme réservé
-    await tx.update(slots)
-      .set({ isBooked: true })
-      .where(eq(slots.id, slotId));
-
-    return booking;
-  });
-
-  // Envoyer email de confirmation
-  if (email) {
-    await sendConfirmationEmail(result);
+  const validated = createBookingSchema.safeParse(rawData);
+  if (!validated.success) {
+    return { success: false, error: validated.error.errors[0].message };
   }
 
-  revalidatePath('/[slug]');
-  return { success: true, booking: result };
+  const { slotId, parentName, childFirstname, email, comment } = validated.data;
+
+  // Transaction pour éviter les race conditions
+  try {
+    const booking = await prisma.$transaction(async (tx) => {
+      // Vérifier que le créneau est disponible
+      const slot = await tx.slot.findUnique({
+        where: { id: slotId },
+      });
+
+      if (!slot || slot.isBooked) {
+        throw new Error('Ce créneau n\'est plus disponible');
+      }
+
+      // Créer la réservation et marquer le slot comme réservé
+      const newBooking = await tx.booking.create({
+        data: {
+          slotId,
+          parentName,
+          childFirstname,
+          email: email || null,
+          comment: comment || null,
+        },
+      });
+
+      await tx.slot.update({
+        where: { id: slotId },
+        data: { isBooked: true },
+      });
+
+      return newBooking;
+    });
+
+    // Envoyer email de confirmation
+    if (email) {
+      await sendConfirmationEmail(booking);
+    }
+
+    revalidatePath('/[slug]');
+    return { success: true, booking };
+  } catch (error) {
+    if (error instanceof Error) {
+      return { success: false, error: error.message };
+    }
+    return { success: false, error: 'Une erreur est survenue' };
+  }
 }
 ```
 
@@ -738,16 +776,18 @@ export async function createBooking(formData: FormData) {
 ```
 src/
 ├── lib/
-│   ├── db/
-│   │   ├── index.ts          # Drizzle client singleton
-│   │   ├── schema.ts         # Tables definition
-│   │   └── migrations/       # SQL migrations
+│   ├── db.ts                 # Prisma client singleton
+│   ├── validations/          # Zod schemas
+│   │   ├── booking.ts
+│   │   └── session.ts
 │   ├── actions/
 │   │   ├── sessions.ts       # Session CRUD
 │   │   ├── bookings.ts       # Booking CRUD
 │   │   └── emails.ts         # Email sending
 │   ├── email.ts              # Nodemailer transporter
 │   └── utils.ts              # Helpers
+├── prisma/
+│   └── schema.prisma         # Database schema
 └── app/
     └── api/
         └── cron/
@@ -761,134 +801,106 @@ src/
 // lib/actions/sessions.ts
 'use server';
 
-import { db } from '@/lib/db';
-import { sessions, slots } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { prisma } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
-import { generateSlug } from '@/lib/utils';
-
-interface CreateSessionInput {
-  name: string;
-  teacherName: string;
-  teacherEmail: string;
-  teacherClass: string;
-  slotConfig: {
-    dates: Date[];
-    startTime: string;
-    endTime: string;
-    duration: number; // minutes
-  };
-}
+import { createSessionSchema, type CreateSessionInput } from '@/lib/validations/session';
+import { generateSlug, generateTimeSlots } from '@/lib/utils';
 
 export async function createSession(input: CreateSessionInput) {
-  const slug = generateSlug(input.teacherName, input.name);
+  // Validation avec Zod
+  const validated = createSessionSchema.safeParse(input);
+  if (!validated.success) {
+    return { success: false, error: validated.error.errors[0].message };
+  }
+
+  const { name, teacherName, teacherEmail, teacherClass, slotConfig } = validated.data;
+  const slug = generateSlug(teacherName, name);
 
   // Générer les créneaux
-  const generatedSlots = generateTimeSlots(input.slotConfig);
+  const generatedSlots = generateTimeSlots(slotConfig);
 
-  const result = await db.transaction(async (tx) => {
-    // Créer la session
-    const [session] = await tx.insert(sessions).values({
-      name: input.name,
-      slug,
-      teacherName: input.teacherName,
-      teacherEmail: input.teacherEmail,
-      teacherClass: input.teacherClass,
-    }).returning();
+  try {
+    const session = await prisma.$transaction(async (tx) => {
+      // Créer la session
+      const newSession = await tx.session.create({
+        data: {
+          name,
+          slug,
+          teacherName,
+          teacherEmail,
+          teacherClass,
+        },
+      });
 
-    // Créer les créneaux
-    await tx.insert(slots).values(
-      generatedSlots.map((slot) => ({
-        sessionId: session.id,
-        date: slot.date,
-        startTime: slot.startTime,
-        endTime: slot.endTime,
-      }))
-    );
+      // Créer les créneaux
+      await tx.slot.createMany({
+        data: generatedSlots.map((slot) => ({
+          sessionId: newSession.id,
+          date: slot.date,
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+        })),
+      });
 
-    return session;
-  });
+      return newSession;
+    });
 
-  revalidatePath('/dashboard');
-  return result;
+    revalidatePath('/dashboard');
+    return { success: true, session };
+  } catch (error) {
+    return { success: false, error: 'Erreur lors de la création de la session' };
+  }
 }
 ```
 
 ### Database Access Layer
 
 ```typescript
-// lib/db/index.ts
-import { neon } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-http';
-import * as schema from './schema';
+// lib/db.ts
+import { PrismaClient } from '@prisma/client';
 
-const sql = neon(process.env.DATABASE_URL!);
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined;
+};
 
-export const db = drizzle(sql, { schema });
+export const prisma = globalForPrisma.prisma ?? new PrismaClient();
+
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
 ```
 
 ```typescript
-// lib/db/schema.ts
-import { pgTable, text, timestamp, date, time, boolean, unique } from 'drizzle-orm/pg-core';
-import { relations } from 'drizzle-orm';
+// lib/validations/booking.ts
+import { z } from 'zod';
 
-export const sessions = pgTable('sessions', {
-  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
-  name: text('name').notNull(),
-  slug: text('slug').notNull().unique(),
-  teacherName: text('teacher_name').notNull(),
-  teacherEmail: text('teacher_email').notNull(),
-  teacherClass: text('teacher_class').notNull(),
-  status: text('status', { enum: ['active', 'archived'] }).notNull().default('active'),
-  createdAt: timestamp('created_at').defaultNow(),
-  updatedAt: timestamp('updated_at').defaultNow(),
+export const createBookingSchema = z.object({
+  slotId: z.string().cuid(),
+  parentName: z.string().min(2, 'Le nom est requis'),
+  childFirstname: z.string().min(2, 'Le prénom de l\'enfant est requis'),
+  email: z.string().email('Email invalide').optional().or(z.literal('')),
+  comment: z.string().max(500, 'Commentaire trop long').optional(),
 });
 
-export const slots = pgTable('slots', {
-  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
-  sessionId: text('session_id').notNull().references(() => sessions.id, { onDelete: 'cascade' }),
-  date: date('date').notNull(),
-  startTime: time('start_time').notNull(),
-  endTime: time('end_time').notNull(),
-  isBooked: boolean('is_booked').notNull().default(false),
-  createdAt: timestamp('created_at').defaultNow(),
-}, (table) => ({
-  uniqueSlot: unique().on(table.sessionId, table.date, table.startTime),
-}));
+export type CreateBookingInput = z.infer<typeof createBookingSchema>;
+```
 
-export const bookings = pgTable('bookings', {
-  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
-  slotId: text('slot_id').notNull().unique().references(() => slots.id, { onDelete: 'cascade' }),
-  parentName: text('parent_name').notNull(),
-  childFirstname: text('child_firstname').notNull(),
-  email: text('email'),
-  comment: text('comment'),
-  reminderSent: boolean('reminder_sent').notNull().default(false),
-  createdAt: timestamp('created_at').defaultNow(),
+```typescript
+// lib/validations/session.ts
+import { z } from 'zod';
+
+export const createSessionSchema = z.object({
+  name: z.string().min(3, 'Nom de session requis'),
+  teacherName: z.string().min(2, 'Nom de l\'enseignant requis'),
+  teacherEmail: z.string().email('Email invalide'),
+  teacherClass: z.string().min(1, 'Classe requise'),
+  slotConfig: z.object({
+    dates: z.array(z.date()).min(1, 'Au moins une date requise'),
+    startTime: z.string().regex(/^\d{2}:\d{2}$/, 'Format HH:MM'),
+    endTime: z.string().regex(/^\d{2}:\d{2}$/, 'Format HH:MM'),
+    duration: z.number().min(5).max(60),
+  }),
 });
 
-// Relations
-export const sessionsRelations = relations(sessions, ({ many }) => ({
-  slots: many(slots),
-}));
-
-export const slotsRelations = relations(slots, ({ one }) => ({
-  session: one(sessions, {
-    fields: [slots.sessionId],
-    references: [sessions.id],
-  }),
-  booking: one(bookings, {
-    fields: [slots.id],
-    references: [bookings.slotId],
-  }),
-}));
-
-export const bookingsRelations = relations(bookings, ({ one }) => ({
-  slot: one(slots, {
-    fields: [bookings.slotId],
-    references: [slots.id],
-  }),
-}));
+export type CreateSessionInput = z.infer<typeof createSessionSchema>;
 ```
 
 ### Authentication (Simplifiée)
@@ -950,10 +962,10 @@ rdv-ecole/
 │   │   ├── session-list.tsx
 │   │   └── booking-list.tsx
 │   ├── lib/
-│   │   ├── db/
-│   │   │   ├── index.ts              # Drizzle client
-│   │   │   ├── schema.ts             # Schema definition
-│   │   │   └── migrations/           # SQL migrations
+│   │   ├── db.ts                     # Prisma client
+│   │   ├── validations/              # Zod schemas
+│   │   │   ├── booking.ts
+│   │   │   └── session.ts
 │   │   ├── actions/
 │   │   │   ├── sessions.ts
 │   │   │   ├── bookings.ts
@@ -968,11 +980,12 @@ rdv-ecole/
 │   ├── brief.md
 │   ├── brainstorming-session-results.md
 │   └── architecture.md
+├── prisma/
+│   └── schema.prisma                 # Prisma schema
 ├── .env.example
 ├── .env.local                        # (gitignored)
 ├── .gitignore
 ├── components.json                   # shadcn/ui config
-├── drizzle.config.ts
 ├── next.config.js
 ├── package.json
 ├── postcss.config.js
@@ -1008,7 +1021,10 @@ cp .env.example .env.local
 # Éditer .env.local avec tes credentials
 
 # Initialiser la base de données
-npx drizzle-kit push
+npx prisma db push
+
+# Générer le client Prisma
+npx prisma generate
 
 # Lancer en dev
 npm run dev
@@ -1030,11 +1046,10 @@ npm run lint
 npm run build
 
 # Générer/appliquer migrations
-npx drizzle-kit generate
-npx drizzle-kit push
+npx prisma migrate dev
 
-# Studio Drizzle (GUI pour la BDD)
-npx drizzle-kit studio
+# Prisma Studio (GUI pour la BDD)
+npx prisma studio
 ```
 
 ### Environment Configuration

@@ -215,6 +215,8 @@ Le MVP est un succès si :
 - **Frontend :** Next.js 14+ (App Router), TypeScript, Tailwind CSS, shadcn/ui
 - **Backend :** Next.js API Routes / Server Actions
 - **Database :** Neon (PostgreSQL serverless)
+- **ORM :** Prisma
+- **Validation :** Zod
 - **Hosting/Infrastructure :** Vercel (gratuit pour ce volume)
 - **Emails :** Gmail SMTP via Nodemailer (compte dédié, ~500/jour, dashboard = Gmail Sent)
 
