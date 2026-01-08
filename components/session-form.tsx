@@ -133,7 +133,7 @@ export function SessionForm() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="teacherName">Votre nom *</Label>
                 <Input
@@ -178,11 +178,11 @@ export function SessionForm() {
               plusieurs groupes avec des horaires différents.
             </p>
 
-            <div className="grid md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Calendar */}
-              <div>
-                <Label className="mb-2 block">Sélectionnez les dates</Label>
-                <div className="border rounded-lg p-2 inline-block">
+              <div className="flex flex-col items-center lg:items-start">
+                <Label className="mb-2 block self-start">Sélectionnez les dates</Label>
+                <div className="border rounded-lg p-2 inline-flex justify-center w-full sm:w-auto">
                   <Calendar
                     mode="multiple"
                     selected={selectedDates}
@@ -193,7 +193,7 @@ export function SessionForm() {
                   />
                 </div>
                 {selectedDates.length > 0 && (
-                  <p className="text-sm text-muted-foreground mt-2">
+                  <p className="text-sm text-muted-foreground mt-2 self-start">
                     {selectedDates.length} date(s) sélectionnée(s)
                   </p>
                 )}
@@ -201,7 +201,7 @@ export function SessionForm() {
 
               {/* Time config */}
               <div className="space-y-4">
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="space-y-2">
                     <Label htmlFor="startTime">Début</Label>
                     <Input
@@ -209,6 +209,7 @@ export function SessionForm() {
                       type="time"
                       value={startTime}
                       onChange={(e) => setStartTime(e.target.value)}
+                      className="w-full"
                     />
                   </div>
                   <div className="space-y-2">
@@ -218,6 +219,7 @@ export function SessionForm() {
                       type="time"
                       value={endTime}
                       onChange={(e) => setEndTime(e.target.value)}
+                      className="w-full"
                     />
                   </div>
                   <div className="space-y-2">
@@ -229,6 +231,7 @@ export function SessionForm() {
                       max="60"
                       value={duration}
                       onChange={(e) => setDuration(parseInt(e.target.value, 10))}
+                      className="w-full"
                     />
                   </div>
                 </div>
@@ -252,12 +255,12 @@ export function SessionForm() {
                 {slotGroups.map((group) => (
                   <div
                     key={group.id}
-                    className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg"
+                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-secondary/50 rounded-lg"
                   >
-                    <div className="space-y-1">
+                    <div className="space-y-1 min-w-0 flex-1">
                       <div className="flex flex-wrap gap-1">
                         {group.dates.map((d) => (
-                          <Badge key={d.toISOString()} variant="outline">
+                          <Badge key={d.toISOString()} variant="outline" className="text-xs">
                             {format(d, "EEE d/MM", { locale: fr })}
                           </Badge>
                         ))}
@@ -272,6 +275,7 @@ export function SessionForm() {
                       variant="ghost"
                       size="sm"
                       onClick={() => removeGroup(group.id)}
+                      className="self-end sm:self-auto shrink-0"
                     >
                       Supprimer
                     </Button>

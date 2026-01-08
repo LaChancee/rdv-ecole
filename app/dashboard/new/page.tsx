@@ -9,9 +9,9 @@ export const metadata = {
 
 export default function NewSessionPage() {
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
+    <div className="min-h-screen bg-gray-50 py-4 sm:py-8 px-3 sm:px-4">
       <div className="max-w-4xl mx-auto">
-        <div className="mb-6">
+        <div className="mb-4 sm:mb-6">
           <Button variant="ghost" size="sm" asChild>
             <Link href="/dashboard">← Retour au dashboard</Link>
           </Button>
