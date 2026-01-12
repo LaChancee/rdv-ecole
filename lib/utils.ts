@@ -17,6 +17,14 @@ export function generateSlug(teacherName: string, sessionName: string): string {
   return `${normalize(teacherName)}-${normalize(sessionName)}`;
 }
 
+/**
+ * Normalize a date to UTC noon to avoid timezone shift issues.
+ * This ensures the date doesn't change when serialized/deserialized.
+ */
+export function normalizeDate(date: Date): Date {
+  return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0));
+}
+
 export function generateTimeSlots(config: {
   dates: Date[];
   startTime: string;
@@ -40,10 +48,12 @@ export function generateTimeSlots(config: {
   const endMinutes = parseTime(config.endTime);
 
   for (const date of config.dates) {
+    // Normalize to UTC noon to avoid timezone issues
+    const normalizedDate = normalizeDate(date);
     let currentStart = startMinutes;
     while (currentStart + config.duration <= endMinutes) {
       slots.push({
-        date,
+        date: normalizedDate,
         startTime: formatTime(currentStart),
         endTime: formatTime(currentStart + config.duration),
       });
@@ -56,10 +66,12 @@ export function generateTimeSlots(config: {
 
 export function formatDate(date: Date | string): string {
   const d = typeof date === "string" ? new Date(date) : date;
+  // Use Europe/Paris timezone for French users
   return d.toLocaleDateString("fr-FR", {
     weekday: "long",
     day: "numeric",
     month: "long",
+    timeZone: "Europe/Paris",
   });
 }
 
