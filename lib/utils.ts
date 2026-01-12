@@ -75,6 +75,18 @@ export function formatDate(date: Date | string): string {
   });
 }
 
+/**
+ * Format a date as short string (e.g., "lun. 19/01") using local date components.
+ * This avoids timezone issues by using getFullYear/getMonth/getDate directly.
+ */
+export function formatShortDate(date: Date): string {
+  const days = ["dim.", "lun.", "mar.", "mer.", "jeu.", "ven.", "sam."];
+  const dayOfWeek = days[date.getDay()];
+  const day = date.getDate();
+  const month = (date.getMonth() + 1).toString().padStart(2, "0");
+  return `${dayOfWeek} ${day}/${month}`;
+}
+
 export function formatTime(time: string): string {
   return time.replace(":", "h");
 }

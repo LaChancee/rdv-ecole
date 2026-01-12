@@ -2,9 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { format } from "date-fns";
-import { fr } from "date-fns/locale";
 import { createSession } from "@/lib/actions/sessions";
+import { formatShortDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -261,7 +260,7 @@ export function SessionForm() {
                       <div className="flex flex-wrap gap-1">
                         {group.dates.map((d) => (
                           <Badge key={d.toISOString()} variant="outline" className="text-xs">
-                            {format(d, "EEE d/MM", { locale: fr })}
+                            {formatShortDate(d)}
                           </Badge>
                         ))}
                       </div>
