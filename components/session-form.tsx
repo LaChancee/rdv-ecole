@@ -19,6 +19,14 @@ interface SlotGroup {
   duration: number;
 }
 
+/**
+ * Normalize a date to UTC noon using LOCAL date components.
+ * This ensures the date survives JSON serialization without shifting days.
+ */
+function toUTCNoon(date: Date): Date {
+  return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0));
+}
+
 export function SessionForm() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -92,7 +100,8 @@ export function SessionForm() {
       teacherEmail,
       teacherClass,
       slotGroups: slotGroups.map((g) => ({
-        dates: g.dates,
+        // Normalize dates to UTC noon to prevent timezone shift during serialization
+        dates: g.dates.map(toUTCNoon),
         startTime: g.startTime,
         endTime: g.endTime,
         duration: g.duration,

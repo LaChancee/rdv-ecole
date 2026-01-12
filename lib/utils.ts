@@ -19,10 +19,10 @@ export function generateSlug(teacherName: string, sessionName: string): string {
 
 /**
  * Normalize a date to UTC noon to avoid timezone shift issues.
- * This ensures the date doesn't change when serialized/deserialized.
+ * Uses UTC methods to work correctly regardless of server timezone.
  */
 export function normalizeDate(date: Date): Date {
-  return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0));
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 12, 0, 0));
 }
 
 export function generateTimeSlots(config: {
